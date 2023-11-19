@@ -22,6 +22,7 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.graph_objects as go
 import plotly.io as pio
 import plotly.express as px
 pio.renderers.default = 'svg'
@@ -98,14 +99,41 @@ seg_map = {
 # Replace RF scores with segments: regualar expression is true to catch the pairs in map
 df_rfm['segment'] = df_rfm['rf_score'].replace(seg_map, regex=True)
 
-# Radar Plot segments per mean monetary
-group_rfm_segment = df_rfm.groupby('segment', as_index=False)[
+# Radar Plot segments per mean and sum monetary
+group_rfm_segment_mean = df_rfm.groupby('segment', as_index=False)[
     'monetary'].mean()
-fig = px.line_polar(group_rfm_segment, r='monetary',
-                    theta='segment', line_close=True)
-fig.update_traces(fill='toself')
-fig.write_image('Mean Monetary per RF Segment.pdf')
+group_rfm_segment_mean['monetary'] = (group_rfm_segment_mean['monetary']-group_rfm_segment_mean['monetary'].min())/(
+    group_rfm_segment_mean['monetary'].max()-group_rfm_segment_mean['monetary'].min())
+group_rfm_segment_sum = df_rfm.groupby(
+    'segment', as_index=False)['monetary'].sum()
+group_rfm_segment_sum['monetary'] = (group_rfm_segment_sum['monetary']-group_rfm_segment_sum['monetary'].min())/(
+    group_rfm_segment_sum['monetary'].max()-group_rfm_segment_sum['monetary'].min())
+categories = group_rfm_segment_mean['segment'].to_list()
+fig = go.Figure()
+fig.add_trace(go.Scatterpolar(
+    r=group_rfm_segment_mean['monetary'].to_list(),
+    theta=categories,
+    fill='toself',
+    name='Monetary Mean'
+))
+fig.add_trace(go.Scatterpolar(
+    r=group_rfm_segment_sum['monetary'].to_list(),
+    theta=categories,
+    fill='toself',
+    name='Monetary Sum'
+))
+fig.update_layout(
+    polar=dict(
+        radialaxis=dict(
+            visible=True,
+            range=[0, 1]
+        )),
+    showlegend=True
+)
 
+fig.write_image('Monetary Distribution per RF Segment Radar.pdf')
+
+""" OPTIONAL
 # Bar Plot segments per total monetary
 group_rfm_segment = df_rfm.groupby('segment', as_index=False)['monetary'].sum()
 order = group_rfm_segment.sort_values('monetary', ascending=False)['segment']
@@ -118,7 +146,8 @@ plt.title('RF Segment')
 for label in ax.containers:
     ax.bar_label(label,)
 plt.tight_layout()
-plt.savefig('Monetary Distribution per RF Segment.pdf', dpi=250)
+plt.savefig('Monetary Distribution per RF Segment Bar.pdf', dpi=250)
+"""
 
 #%%
 # CLTV analysis
