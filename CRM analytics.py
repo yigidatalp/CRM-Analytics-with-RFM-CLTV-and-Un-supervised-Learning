@@ -5,6 +5,7 @@ Created on Sat Nov  4 20:10:26 2023
 @author: Yigitalp
 """
 # Import relevant libraries
+import warnings
 from xgboost import plot_tree
 from xgboost import plot_importance
 from sklearn.metrics import classification_report
@@ -21,7 +22,9 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
-import warnings
+import plotly.io as pio
+import plotly.express as px
+pio.renderers.default = 'svg'
 warnings.filterwarnings('ignore')
 
 # Load dataset
@@ -95,7 +98,15 @@ seg_map = {
 # Replace RF scores with segments: regualar expression is true to catch the pairs in map
 df_rfm['segment'] = df_rfm['rf_score'].replace(seg_map, regex=True)
 
-# Plot segments per total monetary
+# Radar Plot segments per mean monetary
+group_rfm_segment = df_rfm.groupby('segment', as_index=False)[
+    'monetary'].mean()
+fig = px.line_polar(group_rfm_segment, r='monetary',
+                    theta='segment', line_close=True)
+fig.update_traces(fill='toself')
+fig.write_image('Mean Monetary per RF Segment.pdf')
+
+# Bar Plot segments per total monetary
 group_rfm_segment = df_rfm.groupby('segment', as_index=False)['monetary'].sum()
 order = group_rfm_segment.sort_values('monetary', ascending=False)['segment']
 fig, ax = plt.subplots(figsize=(12, 8))
