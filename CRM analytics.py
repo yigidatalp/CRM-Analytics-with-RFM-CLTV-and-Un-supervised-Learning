@@ -100,28 +100,37 @@ seg_map = {
 df_rfm['segment'] = df_rfm['rf_score'].replace(seg_map, regex=True)
 
 # Radar Plot segments per mean and sum monetary
-group_rfm_segment_mean = df_rfm.groupby('segment', as_index=False)[
-    'monetary'].mean()
-group_rfm_segment_mean['monetary'] = (group_rfm_segment_mean['monetary']-group_rfm_segment_mean['monetary'].min())/(
-    group_rfm_segment_mean['monetary'].max()-group_rfm_segment_mean['monetary'].min())
-group_rfm_segment_sum = df_rfm.groupby(
-    'segment', as_index=False)['monetary'].sum()
-group_rfm_segment_sum['monetary'] = (group_rfm_segment_sum['monetary']-group_rfm_segment_sum['monetary'].min())/(
-    group_rfm_segment_sum['monetary'].max()-group_rfm_segment_sum['monetary'].min())
-categories = group_rfm_segment_mean['segment'].to_list()
+# Convert monetary score to int
+df_rfm['monetary_score'] = df_rfm['monetary_score'].astype(int)
+
+# Create aggregations of monetary and monetary score per segment
+group_rfm_segment = df_rfm.groupby('segment', as_index=False).agg(
+    monetary_mean=('monetary', np.mean),
+    monetary_sum=('monetary', np.sum),
+    monetary_score_mean=('monetary_score', np.mean),
+    monetary_score_sum=('monetary_score', np.sum))
+
+# Find numeric columns
+columns_numeric = group_rfm_segment.select_dtypes(
+    include=np.number).columns.to_list()
+
+# Normalize numeric columns
+for col in columns_numeric:
+    group_rfm_segment[col] = (group_rfm_segment[col]-group_rfm_segment[col].min())/(
+        group_rfm_segment[col].max()-group_rfm_segment[col].min())
+
+# Create categories from segments
+categories = group_rfm_segment['segment'].to_list()
+
+# Plot radar chart and save it
 fig = go.Figure()
-fig.add_trace(go.Scatterpolar(
-    r=group_rfm_segment_mean['monetary'].to_list(),
-    theta=categories,
-    fill='toself',
-    name='Monetary Mean'
-))
-fig.add_trace(go.Scatterpolar(
-    r=group_rfm_segment_sum['monetary'].to_list(),
-    theta=categories,
-    fill='toself',
-    name='Monetary Sum'
-))
+for col in columns_numeric:
+    fig.add_trace(go.Scatterpolar(
+        r=group_rfm_segment[col].to_list(),
+        theta=categories,
+        fill='toself',
+        name=f'{col}'
+    ))
 fig.update_layout(
     polar=dict(
         radialaxis=dict(
@@ -130,7 +139,6 @@ fig.update_layout(
         )),
     showlegend=True
 )
-
 fig.write_image('Monetary Distribution per RF Segment Radar.pdf')
 
 """ OPTIONAL
